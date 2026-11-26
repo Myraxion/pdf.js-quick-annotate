@@ -30,6 +30,11 @@
     INK: 15,
   };
 
+  const CURSOR_TOOL = {
+    SELECT: 0,
+    HAND: 1,
+  };
+
   /**
    * 生成默认配置
    * @returns {object}
@@ -64,6 +69,15 @@
           meta: false,
           enabled: true,
           label: "画笔 / 涂鸦",
+        },
+        handTool: {
+          key: "v",
+          ctrl: false,
+          alt: false,
+          shift: false,
+          meta: false,
+          enabled: true,
+          label: "按住临时抓手 (Hand Tool)",
         },
         escape: {
           key: "Escape",
@@ -247,6 +261,21 @@
   }
 
   /**
+   * 判断 keyup 事件是否释放了指定快捷键的主键（忽略修饰键变化，避免按住期间误触修饰键导致卡死）
+   * @param {KeyboardEvent|{key:string,code?:string}} event
+   * @param {object} binding
+   * @returns {boolean}
+   */
+  function isKeyReleaseMatch(event, binding) {
+    if (!binding || !binding.enabled || !binding.key) return false;
+    const targetKey = normalizeKey(binding.key);
+    const eventKey = normalizeKey(event?.key);
+    if (eventKey && eventKey === targetKey) return true;
+    const fallback = keyFromCode(event?.code);
+    return Boolean(fallback && fallback === targetKey);
+  }
+
+  /**
    * 生成快捷键的唯一签名字符串，用于冲突检测
    * @param {object} binding
    * @returns {string}
@@ -327,12 +356,14 @@
     STORAGE_KEY,
     FALLBACK_COLORS,
     EDITOR_MODE,
+    CURSOR_TOOL,
     createDefaultConfig,
     normalizeKey,
     keyFromCode,
     mergeConfig,
     isHostAllowed,
     matchShortcut,
+    isKeyReleaseMatch,
     getShortcutSignature,
     detectShortcutConflicts,
     formatShortcut,
@@ -581,6 +612,45 @@
       const active = document.activeElement;
       if (!active) return false;
       return Boolean(active.isContentEditable && active.closest(".freeTextEditor"));
+    },
+
+    isHandToolActive() {
+      const activeTool = this.getApp()?.pdfCursorTools?.activeTool;
+      if (typeof activeTool === "number") {
+        return activeTool === CURSOR_TOOL.HAND;
+      }
+      const handBtn = document.getElementById("cursorHandTool");
+      if (!handBtn) return false;
+      return (
+        handBtn.classList.contains("toggled") ||
+        handBtn.getAttribute("aria-checked") === "true" ||
+        handBtn.getAttribute("aria-pressed") === "true"
+      );
+    },
+
+    setHandTool(enabled) {
+      const targetTool = enabled ? CURSOR_TOOL.HAND : CURSOR_TOOL.SELECT;
+      const app = this.getApp();
+
+      if (app?.eventBus) {
+        app.eventBus.dispatch("switchcursortool", {
+          source: app.toolbar || this,
+          tool: targetTool,
+        });
+        return true;
+      }
+
+      if (app?.pdfCursorTools && typeof app.pdfCursorTools.switchTool === "function") {
+        app.pdfCursorTools.switchTool(targetTool);
+        return true;
+      }
+
+      const btn = document.getElementById(enabled ? "cursorHandTool" : "cursorSelectTool");
+      if (btn && !btn.disabled) {
+        btn.click();
+        return true;
+      }
+      return false;
     },
   };
 
@@ -1193,6 +1263,47 @@
   let currentConfig = Storage.load();
   let menuCommandIds = [];
 
+  // 按住临时抓手状态
+  const tempHandState = {
+    active: false,
+    previousMode: "none",
+    wasHandTool: false,
+  };
+
+  function activateTempHandTool() {
+    if (tempHandState.active) return;
+
+    const previousMode = PdfAdapter.getCurrentMode();
+    const wasHandTool = PdfAdapter.isHandToolActive();
+
+    tempHandState.active = true;
+    tempHandState.previousMode = previousMode;
+    tempHandState.wasHandTool = wasHandTool;
+
+    if (previousMode !== "none") {
+      PdfAdapter.exitToNoneMode();
+    }
+    if (!wasHandTool) {
+      PdfAdapter.setHandTool(true);
+    }
+  }
+
+  function releaseTempHandTool() {
+    if (!tempHandState.active) return;
+
+    const { previousMode, wasHandTool } = tempHandState;
+    tempHandState.active = false;
+    tempHandState.previousMode = "none";
+    tempHandState.wasHandTool = false;
+
+    if (!wasHandTool) {
+      PdfAdapter.setHandTool(false);
+    }
+    if (previousMode !== "none") {
+      PdfAdapter.toggleMode(previousMode);
+    }
+  }
+
   const settingsPanel = new SettingsPanel(
     () => currentConfig,
     (nextConfig) => {
@@ -1310,6 +1421,15 @@
       return;
     }
 
+    if (matchShortcut(event, sc.handTool)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) {
+        activateTempHandTool();
+      }
+      return;
+    }
+
     // 4. 快速切换颜色 1~5（仅在处于标注模式下生效）
     const colorActions = ["color1", "color2", "color3", "color4", "color5"];
     for (let i = 0; i < colorActions.length; i++) {
@@ -1324,6 +1444,17 @@
     }
   }
 
+  function handleKeyUp(event) {
+    if (!tempHandState.active) return;
+    if (isKeyReleaseMatch(event, currentConfig.shortcuts.handTool)) {
+      event.preventDefault();
+      event.stopPropagation();
+      releaseTempHandTool();
+    }
+  }
+
   refreshMenuCommands();
   window.addEventListener("keydown", handleKeyDown, true);
+  window.addEventListener("keyup", handleKeyUp, true);
+  window.addEventListener("blur", releaseTempHandTool);
 })(typeof window !== "undefined" ? window : globalThis);

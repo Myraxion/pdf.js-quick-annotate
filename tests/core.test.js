@@ -81,3 +81,18 @@ test("isEditableTarget 识别输入元素", () => {
   assert.equal(Core.isEditableTarget({ tagName: "DIV", isContentEditable: true }), true);
   assert.equal(Core.isEditableTarget({ tagName: "DIV", isContentEditable: false }), false);
 });
+
+test("handTool 默认绑定 V 键且 isKeyReleaseMatch 正确识别松开事件", () => {
+  const cfg = Core.createDefaultConfig();
+  assert.equal(cfg.shortcuts.handTool.key, "v");
+  assert.equal(cfg.shortcuts.handTool.enabled, true);
+
+  const binding = cfg.shortcuts.handTool;
+  assert.equal(Core.isKeyReleaseMatch({ key: "v" }, binding), true);
+  assert.equal(Core.isKeyReleaseMatch({ key: "V" }, binding), true);
+  assert.equal(Core.isKeyReleaseMatch({ key: "Process", code: "KeyV" }, binding), true);
+  // 按住期间即使修饰键变化，松开主键仍应释放
+  assert.equal(Core.isKeyReleaseMatch({ key: "v", shiftKey: true }, binding), true);
+  assert.equal(Core.isKeyReleaseMatch({ key: "h" }, binding), false);
+  assert.equal(Core.isKeyReleaseMatch({ key: "v" }, { ...binding, enabled: false }), false);
+});
