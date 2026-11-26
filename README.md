@@ -1,6 +1,6 @@
 # PDF.js & PdfDing 标注快捷键 (`pdfjs-quick-annotate.user.js`)
 
-为自部署的 **PdfDing** 或原生 **PDF.JS** 阅读器提供“单键直觉流”标注快捷键与可视化配置面板，无需修改或 Fork 服务端源码。
+为自部署的 **PdfDing** 或原生 **PDF.JS** 阅读器提供“单键直觉流”标注快捷键与可视化配置面板。
 
 ## 默认快捷键
 
@@ -17,10 +17,17 @@
 ## 安装与使用
 
 1. 在浏览器中安装脚本管理器（如 **Tampermonkey** 或 **Violentmonkey**）。
-2. 安装本仓库根目录下的 [pdfjs-quick-annotate.user.js](./pdfjs-quick-annotate.user.js)。
+2. **[点击安装脚本](https://raw.githubusercontent.com/Myraxion/pdf.js-quick-annotate/main/pdfjs-quick-annotate.user.js)**
 3. 打开你的 PdfDing 或 PDF.JS 页面，点击浏览器右上角脚本管理器图标：
    - 点击 **「➕ 启用当前域名 (...)」** 即可一键激活；
    - 点击 **「⚙️ 打开标注快捷键设置」** 可管理域名白名单、自定义/录制快捷键、检测冲突或恢复默认设置。
+
+### 进阶：限制脚本仅在指定域名注入（可选）
+
+脚本默认使用 `@match *://*/*` 以确保各类自部署路径开箱即用（未加入白名单的页面不会拦截任何按键）。如果你希望彻底避免脚本在其他网站加载，且不希望脚本更新时覆盖配置，建议使用脚本管理器自带的**用户匹配**功能覆盖默认规则：
+
+- **Tampermonkey（篡改猴）**：打开脚本编辑页 → **设置** → **包含/排除** → 取消勾选原始匹配 `*://*/*`，并在 **用户匹配** 中添加你的域名（如 `https://pdf.yourdomain.com/*`）。
+- **Violentmonkey（暴力猴）**：打开脚本编辑页 → **设置** → **匹配** → 取消勾选 **保留默认匹配规则**，并在 **自定义匹配规则** 中填入你的域名（如 `https://pdf.yourdomain.com/*`）。
 
 ## 本地测试
 
