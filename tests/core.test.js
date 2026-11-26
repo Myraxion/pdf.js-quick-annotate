@@ -69,10 +69,14 @@ test("mergeConfig 规范化并保留默认字段", () => {
   });
 
   assert.deepEqual(merged.domains, [{ host: "myhost.local:8080", enabled: true }]);
+  assert.equal(merged.highlightPassthrough, true);
   assert.equal(merged.shortcuts.highlight.key, "j");
   assert.equal(merged.shortcuts.highlight.ctrl, true);
   assert.equal(merged.shortcuts.highlight.label, "高亮 / 划词即高亮");
   assert.equal(merged.shortcuts.ink.key, "d");
+
+  const disabledPassthrough = Core.mergeConfig({ highlightPassthrough: false });
+  assert.equal(disabledPassthrough.highlightPassthrough, false);
 });
 
 test("isEditableTarget 识别输入元素", () => {

@@ -42,6 +42,7 @@
   function createDefaultConfig() {
     return {
       domains: [],
+      highlightPassthrough: true,
       shortcuts: {
         highlight: {
           key: "h",
@@ -213,7 +214,12 @@
       }
     }
 
-    return { domains, shortcuts };
+    const highlightPassthrough =
+      typeof raw.highlightPassthrough === "boolean"
+        ? raw.highlightPassthrough
+        : def.highlightPassthrough;
+
+    return { domains, shortcuts, highlightPassthrough };
   }
 
   /**
@@ -1092,6 +1098,21 @@
                     .join("")}
                 </div>
               </section>
+
+              <section class="section">
+                <h3>交互行为</h3>
+                <div class="shortcut-item">
+                  <label class="shortcut-meta" style="cursor: pointer; width: 100%;">
+                    <input type="checkbox" id="qa-highlight-passthrough" ${
+                      cfg.highlightPassthrough !== false ? "checked" : ""
+                    } />
+                    <div>
+                      <div>普通模式下允许在已有高亮上划词与双击选词</div>
+                      <div class="hint" style="margin-top: 2px;">开启后默认穿透高亮层；按 H 进入高亮模式即可点击编辑或删除高亮</div>
+                    </div>
+                  </label>
+                </div>
+              </section>
             </div>
             <div class="footer">
               <button class="danger" id="qa-reset">恢复默认设置</button>
@@ -1247,11 +1268,21 @@
         });
       });
 
+      s.getElementById("qa-highlight-passthrough")?.addEventListener("change", (e) => {
+        const cfg = this.getConfig();
+        cfg.highlightPassthrough = Boolean(e.target.checked);
+        this.updateConfig(cfg);
+      });
+
       s.getElementById("qa-reset")?.addEventListener("click", () => {
         const cfg = this.getConfig();
         const def = createDefaultConfig();
-        // 保留已配置的域名列表，仅重置快捷键为初始方案
-        this.updateConfig({ domains: cfg.domains, shortcuts: def.shortcuts });
+        // 保留已配置的域名列表，重置快捷键与交互开关为初始方案
+        this.updateConfig({
+          domains: cfg.domains,
+          shortcuts: def.shortcuts,
+          highlightPassthrough: def.highlightPassthrough,
+        });
         this.render();
         showToast("已恢复默认快捷键设置");
       });
@@ -1262,6 +1293,37 @@
 
   let currentConfig = Storage.load();
   let menuCommandIds = [];
+
+  const PASSTHROUGH_STYLE_ID = "pdfjs-qa-highlight-passthrough";
+
+  /**
+   * 仅在启用白名单的 PDF.JS 页面注入穿透样式：
+   * 普通阅读模式下允许直接在已有高亮文本上划词和双击选词；
+   * 切换到高亮模式 (.highlightEditing) 后自动恢复点击选中/编辑已有高亮。
+   */
+  function syncHighlightPassthroughStyle() {
+    const shouldEnable =
+      currentConfig.highlightPassthrough !== false &&
+      isHostAllowed(location.host, currentConfig.domains) &&
+      PdfAdapter.isPdfViewerPage();
+    const existing = document.getElementById(PASSTHROUGH_STYLE_ID);
+
+    if (!shouldEnable) {
+      if (existing) existing.remove();
+      return;
+    }
+
+    if (existing) return;
+
+    const style = document.createElement("style");
+    style.id = PASSTHROUGH_STYLE_ID;
+    style.textContent = `
+      .annotationEditorLayer:not(.highlightEditing) .highlightEditor .internal {
+        pointer-events: none !important;
+      }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  }
 
   // 按住临时抓手状态
   const tempHandState = {
@@ -1309,6 +1371,7 @@
     (nextConfig) => {
       currentConfig = Storage.save(nextConfig);
       refreshMenuCommands();
+      syncHighlightPassthroughStyle();
     }
   );
 
@@ -1324,6 +1387,7 @@
     }
     currentConfig = Storage.save(currentConfig);
     refreshMenuCommands();
+    syncHighlightPassthroughStyle();
     if (settingsPanel.isOpen()) settingsPanel.render();
   }
 
@@ -1454,6 +1518,7 @@
   }
 
   refreshMenuCommands();
+  syncHighlightPassthroughStyle();
   window.addEventListener("keydown", handleKeyDown, true);
   window.addEventListener("keyup", handleKeyUp, true);
   window.addEventListener("blur", releaseTempHandTool);
