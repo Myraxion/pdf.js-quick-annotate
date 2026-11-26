@@ -1318,10 +1318,12 @@
     style.id = PASSTHROUGH_STYLE_ID;
     style.textContent = `
       .annotationEditorLayer:not(.highlightEditing) .highlightEditor,
-      .annotationEditorLayer:not(.highlightEditing) .highlightEditor .internal {
+      .annotationEditorLayer:not(.highlightEditing) .highlightEditor .internal,
+      .page:not(:has(.annotationEditorLayer.highlightEditing)) .annotationLayer .highlightAnnotation {
         pointer-events: none !important;
       }
-      .annotationEditorLayer:not(.highlightEditing) .highlightEditor .editToolbar {
+      .annotationEditorLayer:not(.highlightEditing) .highlightEditor .editToolbar,
+      .page:not(:has(.annotationEditorLayer.highlightEditing)) .annotationLayer .highlightAnnotation .popup {
         pointer-events: auto !important;
       }
     `;
