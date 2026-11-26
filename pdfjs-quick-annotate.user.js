@@ -1297,15 +1297,14 @@
   const PASSTHROUGH_STYLE_ID = "pdfjs-qa-highlight-passthrough";
 
   /**
-   * 仅在启用白名单的 PDF.JS 页面注入穿透样式：
+   * 仅在启用白名单的站点注入穿透样式（不依赖 PDFViewerApplication 异步初始化时机）：
    * 普通阅读模式下允许直接在已有高亮文本上划词和双击选词；
    * 切换到高亮模式 (.highlightEditing) 后自动恢复点击选中/编辑已有高亮。
    */
   function syncHighlightPassthroughStyle() {
     const shouldEnable =
       currentConfig.highlightPassthrough !== false &&
-      isHostAllowed(location.host, currentConfig.domains) &&
-      PdfAdapter.isPdfViewerPage();
+      isHostAllowed(location.host, currentConfig.domains);
     const existing = document.getElementById(PASSTHROUGH_STYLE_ID);
 
     if (!shouldEnable) {
@@ -1318,8 +1317,12 @@
     const style = document.createElement("style");
     style.id = PASSTHROUGH_STYLE_ID;
     style.textContent = `
+      .annotationEditorLayer:not(.highlightEditing) .highlightEditor,
       .annotationEditorLayer:not(.highlightEditing) .highlightEditor .internal {
         pointer-events: none !important;
+      }
+      .annotationEditorLayer:not(.highlightEditing) .highlightEditor .editToolbar {
+        pointer-events: auto !important;
       }
     `;
     (document.head || document.documentElement).appendChild(style);
